@@ -1,0 +1,346 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 Stanley Cup Playoff Pool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px; color: #333;
+        }
+        .header { text-align: center; margin-bottom: 30px; }
+        h1 { color: #1a1a1a; font-size: 2.5em; margin-bottom: 5px; }
+        .subtitle { color: #666; font-size: 1em; }
+        .bracket-wrapper {
+            background: white; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            padding: 30px 40px; margin-bottom: 30px; overflow-x: auto;
+        }
+        .bracket-layout { display: flex; gap: 30px; min-width: min-content; }
+        .bracket-left { flex-shrink: 0; width: 200px; }
+        .bracket-content { flex: 1; display: flex; gap: 20px; align-items: flex-start; }
+        .round-column {
+            display: flex; flex-direction: column;
+            justify-content: space-around; min-height: 700px;
+            flex-shrink: 0; gap: 10px;
+        }
+        .round-title {
+            text-align: center; font-weight: bold;
+            color: #666; font-size: 0.75em;
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 10px; padding: 8px 0;
+            border-bottom: 2px solid #eee;
+        }
+        .matchup-box {
+            background: white; border: 1px solid #ddd;
+            border-radius: 6px; padding: 10px;
+            min-width: 140px; font-size: 0.85em;
+        }
+        .matchup-team {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px; cursor: pointer; border-radius: 3px;
+            transition: all 0.2s;
+        }
+        .matchup-team:hover { background: rgba(33, 150, 243, 0.1); }
+        .team-logo {
+            width: 32px; height: 32px; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: white; font-size: 0.65em;
+            cursor: pointer; transition: transform 0.2s; flex-shrink: 0;
+        }
+        .team-logo:hover { transform: scale(1.05); }
+        .team-code { font-weight: 600; min-width: 35px; }
+        .team-score { font-weight: bold; min-width: 20px; }
+        .team-prob { color: #999; font-size: 0.75em; min-width: 35px; }
+        .divider-line { height: 1px; background: #ddd; margin: 4px 0; }
+        .player-name-label { font-size: 0.7em; color: #999; margin-top: 2px; }
+        .empty-matchup-container { display: flex; align-items: center; justify-content: center; flex: 1; }
+        
+        /* Team Colors */
+        .logo-COL { background: linear-gradient(135deg, #6f2da8 0%, #a01e5e 100%); }
+        .logo-LAK { background: linear-gradient(135deg, #111111 0%, #a6adb5 100%); }
+        .logo-DAL { background: linear-gradient(135deg, #006341 0%, #111111 100%); }
+        .logo-MIN { background: linear-gradient(135deg, #154734 0%, #a6192e 100%); }
+        .logo-VGK { background: linear-gradient(135deg, #b4975a 0%, #000000 100%); }
+        .logo-UTA { background: linear-gradient(135deg, #00205b 0%, #a6192e 100%); }
+        .logo-EDM { background: linear-gradient(135deg, #ff6600 0%, #003da5 100%); }
+        .logo-ANA { background: linear-gradient(135deg, #f47d30 0%, #000000 100%); }
+        .logo-BUF { background: linear-gradient(135deg, #00338d 0%, #ffc52f 100%); }
+        .logo-BOS { background: linear-gradient(135deg, #ffd700 0%, #000000 100%); }
+        .logo-TBL { background: linear-gradient(135deg, #002868 0%, #ffffff 100%); color: #002868; }
+        .logo-MTL { background: linear-gradient(135deg, #af1e2d 0%, #00205b 100%); }
+        .logo-CAR { background: linear-gradient(135deg, #cc0000 0%, #8b0000 100%); }
+        .logo-OTT { background: linear-gradient(135deg, #c8102e 0%, #000000 100%); }
+        .logo-PIT { background: linear-gradient(135deg, #27251f 0%, #fcb514 100%); }
+        .logo-PHI { background: linear-gradient(135deg, #f74601 0%, #010101 100%); }
+        
+        .upcoming-section {
+            background: #f8f9fa; border: 1px solid #ddd;
+            border-radius: 8px; padding: 12px; margin-bottom: 15px;
+        }
+        .upcoming-title { font-weight: bold; font-size: 0.8em; color: #666;
+            text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .upcoming-match { font-size: 0.85em; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center; }
+        .match-team { cursor: pointer; padding: 4px 6px; border-radius: 3px;
+            transition: all 0.2s; flex: 1; }
+        .match-team:hover { background: rgba(33, 150, 243, 0.15); color: #1976d2; }
+        .match-owner { font-size: 0.75em; color: #999; margin-left: 4px; }
+        
+        .loading { text-align: center; color: #999; padding: 20px; font-size: 0.95em; }
+        .update-info { text-align: center; color: #999; font-size: 0.85em; margin-top: 20px; }
+        .live-badge {
+            background: #e53935; color: white; font-size: 0.65em;
+            padding: 2px 6px; border-radius: 3px; margin-bottom: 6px;
+            text-align: center; font-weight: bold; letter-spacing: 0.5px;
+        }
+        .live-badge-final { background: #757575; }
+        .sidebar-section-label {
+            font-size: 0.7em; font-weight: bold; color: #888;
+            text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 4px;
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width: 100%; margin: 0 auto;">
+        <div class="header">
+            <h1>2026 PLAYOFF BRACKET</h1>
+            <p class="subtitle">Live Bracket & Win Probabilities</p>
+        </div>
+
+        <div class="bracket-wrapper">
+            <div class="bracket-layout" id="bracket">
+                <div class="loading">Loading playoff bracket data...</div>
+            </div>
+        </div>
+
+        <div class="update-info" id="updateInfo">
+            Last updated: <span id="updateTime">--:--</span> | Auto-refreshing every 30 seconds
+        </div>
+    </div>
+
+    <script>
+        const SEASON = '20252026';
+
+        const poolPicks = [
+            { owner: 'CJ',      team: 'COL' },
+            { owner: 'Antoine', team: 'CAR' },
+            { owner: 'Nell',    team: 'TBL' },
+            { owner: 'JC',      team: 'EDM' },
+            { owner: 'Patrick', team: 'VGK' },
+            { owner: 'Patrick', team: 'BUF' },
+            { owner: 'JC',      team: 'PIT' },
+            { owner: 'Nell',    team: 'DAL' },
+            { owner: 'Antoine', team: 'MIN' },
+            { owner: 'CJ',      team: 'OTT' },
+            { owner: 'CJ',      team: 'MTL' },
+            { owner: 'Antoine', team: 'PHI' },
+            { owner: 'Nell',    team: 'ANA' },
+            { owner: 'JC',      team: 'BOS' },
+            { owner: 'Patrick', team: 'UTA' }
+        ];
+
+        // Source of truth for keys — order defines team1/team2
+        const R1_MATCHUPS = [
+            ['COL','LAK'], ['DAL','MIN'], ['VGK','UTA'], ['EDM','ANA'],
+            ['BUF','BOS'], ['TBL','MTL'], ['CAR','OTT'], ['PIT','PHI']
+        ];
+
+        function getTeamOwner(teamCode) {
+            const pick = poolPicks.find(p => p.team === teamCode);
+            return pick ? pick.owner : '';
+        }
+
+        function initScores() {
+            const scores = {};
+            R1_MATCHUPS.forEach(([t1, t2]) => {
+                scores[`${t1}-${t2}`] = { team1: t1, team2: t2, wins1: 0, wins2: 0, live: null };
+            });
+            return scores;
+        }
+
+        // CORS proxy required for static-file pages hitting NHL API
+        const PROXY = 'https://corsproxy.io/?url=';
+
+        async function nhlfetch(path) {
+            const url = `https://api-web.nhle.com/v1${path}`;
+            const res = await fetch(PROXY + encodeURIComponent(url));
+            if (!res.ok) throw new Error(`HTTP ${res.status} – ${url}`);
+            return res.json();
+        }
+
+        // Playoffs start date — fetch all daily scores from here to today and count wins
+        const PLAYOFF_START = '2026-04-19';
+
+        async function fetchNHLData() {
+            const scores = initScores();
+
+            const start = new Date(PLAYOFF_START);
+            const today = new Date();
+            const dates = [];
+            for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+                dates.push(d.toISOString().slice(0, 10));
+            }
+
+            const results = await Promise.allSettled(
+                dates.map(date => nhlfetch(`/score/${date}`))
+            );
+
+            results.forEach(r => {
+                if (r.status !== 'fulfilled') return;
+                processGameDay(r.value, scores);
+            });
+
+            return scores;
+        }
+
+        function processGameDay(data, scores) {
+            (data.games || []).forEach(game => {
+                if (game.gameType !== 3) return; // playoff only
+                const away = game.awayTeam?.abbrev;
+                const home = game.homeTeam?.abbrev;
+                if (!away || !home) return;
+
+                const state = game.gameState;
+                const awayGoals = game.awayTeam.score || 0;
+                const homeGoals = game.homeTeam.score || 0;
+
+                for (const [m1, m2] of R1_MATCHUPS) {
+                    if (!((m1 === away || m1 === home) && (m2 === away || m2 === home))) continue;
+                    const key = `${m1}-${m2}`;
+                    const m1IsHome = m1 === home;
+
+                    if (state === 'FINAL' || state === 'OFF') {
+                        const winner = homeGoals > awayGoals ? home : away;
+                        if (winner === m1) scores[key].wins1++;
+                        else scores[key].wins2++;
+                    } else if (state === 'LIVE' || state === 'CRIT') {
+                        scores[key].live = {
+                            score1: m1IsHome ? homeGoals : awayGoals,
+                            score2: m1IsHome ? awayGoals : homeGoals,
+                            state,
+                            period: game.period || 0,
+                            clock: game.clock?.timeRemaining || ''
+                        };
+                    }
+                    break;
+                }
+            });
+        }
+
+        function periodLabel(p) {
+            if (p === 4) return 'OT';
+            if (p >= 5) return 'SO';
+            return `P${p}`;
+        }
+
+        function createMatchupBox(team1, team2, wins1, wins2, player1, player2, live) {
+            let liveHtml = '';
+            if (live) {
+                const isLive = live.state === 'LIVE' || live.state === 'CRIT';
+                const label = isLive ? `LIVE ${periodLabel(live.period)} ${live.clock}` : 'FINAL';
+                liveHtml = `<div class="live-badge${isLive ? '' : ' live-badge-final'}">${label}: ${live.score1}–${live.score2}</div>`;
+            }
+            return `<div class="matchup-box">
+                ${liveHtml}
+                <div class="matchup-team">
+                    <div class="team-logo logo-${team1}">${team1}</div>
+                    <div class="team-code">${team1}</div>
+                    <div class="team-score">${wins1}</div>
+                </div>
+                ${player1 ? `<div class="player-name-label">${player1}</div>` : ''}
+                <div class="divider-line"></div>
+                <div class="matchup-team">
+                    <div class="team-logo logo-${team2}">${team2}</div>
+                    <div class="team-code">${team2}</div>
+                    <div class="team-score">${wins2}</div>
+                </div>
+                ${player2 ? `<div class="player-name-label">${player2}</div>` : ''}
+            </div>`;
+        }
+
+        function createEmptyMatchup() {
+            return `<div class="matchup-box" style="background: #f5f5f5; border: 2px dashed #ddd;">
+                <div class="matchup-team" style="color: #ccc; cursor: default; padding: 20px 0;">TBD</div>
+                <div class="divider-line"></div>
+                <div class="matchup-team" style="color: #ccc; cursor: default; padding: 20px 0;">TBD</div>
+            </div>`;
+        }
+
+        function createSidebarMatchup(team1, team2) {
+            const owner1 = getTeamOwner(team1);
+            const owner2 = getTeamOwner(team2);
+            return `<div class="upcoming-section">
+                <div class="upcoming-match"><span class="match-team">${team1}</span>${owner1 ? `<span class="match-owner">${owner1}</span>` : ''}</div>
+                <div class="upcoming-match"><span class="match-team">${team2}</span>${owner2 ? `<span class="match-owner">${owner2}</span>` : ''}</div>
+            </div>`;
+        }
+
+        function generateBracket(scores) {
+            let html = `<div class="bracket-content">`;
+
+            html += `<div class="round-column">
+                <div class="round-title">WEST R1<br><span style="font-size:0.8em;font-weight:normal">Series W</span></div>`;
+            ['COL-LAK','DAL-MIN','VGK-UTA','EDM-ANA'].forEach(key => {
+                const s = scores[key];
+                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live);
+            });
+            html += `</div>`;
+
+            html += `<div class="round-column"><div class="round-title">WEST R2</div>
+                <div class="empty-matchup-container">${createEmptyMatchup()}</div>
+                <div class="empty-matchup-container">${createEmptyMatchup()}</div>
+            </div>`;
+
+            html += `<div class="round-column"><div class="round-title">WEST FINAL</div>
+                <div class="empty-matchup-container">${createEmptyMatchup()}</div>
+            </div>`;
+
+            html += `<div class="round-column"><div class="round-title" style="color: #ff9800;">STANLEY CUP</div>
+                <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                    <div style="text-align: center; color: #999;"><div style="font-size: 2.5em;">🏆</div><div style="font-size: 0.85em;">Champion TBD</div></div>
+                </div>
+            </div>`;
+
+            html += `<div class="round-column"><div class="round-title">EAST FINAL</div>
+                <div class="empty-matchup-container">${createEmptyMatchup()}</div>
+            </div>`;
+
+            html += `<div class="round-column"><div class="round-title">EAST R2</div>
+                <div class="empty-matchup-container">${createEmptyMatchup()}</div>
+                <div class="empty-matchup-container">${createEmptyMatchup()}</div>
+            </div>`;
+
+            html += `<div class="round-column">
+                <div class="round-title">EAST R1<br><span style="font-size:0.8em;font-weight:normal">Series W</span></div>`;
+            ['BUF-BOS','TBL-MTL','CAR-OTT','PIT-PHI'].forEach(key => {
+                const s = scores[key];
+                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live);
+            });
+            html += `</div></div>`;
+
+            return html;
+        }
+
+        async function updateBracket() {
+            try {
+                const scores = await fetchNHLData();
+                document.getElementById('bracket').innerHTML = generateBracket(scores);
+                document.getElementById('updateTime').textContent =
+                    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            } catch (error) {
+                console.error('Error updating bracket:', error);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            updateBracket();
+            setInterval(updateBracket, 30000);
+        });
+    </script>
+</body>
+</html>
+
