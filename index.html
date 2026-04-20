@@ -172,6 +172,11 @@
     <script>
         const SEASON = '20252026';
 
+        // Get a free key at https://the-odds-api.com (500 req/month free)
+        const ODDS_API_KEY = 'a5eab1c0978ba5a6f1c238c3b5b35ecc';
+
+        let liveSeriesOdds = {}; // { 'COL-LAK': 77 } — % chance team1 wins series
+
         const poolPicks = [
             { owner: 'CJ',      team: 'COL' },
             { owner: 'Antoine', team: 'CAR' },
@@ -392,19 +397,29 @@
             return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">${inner}</svg>`;
         }
 
-        function createMatchupBox(team1, team2, wins1, wins2, player1, player2, live) {
+        function createMatchupBox(team1, team2, wins1, wins2, player1, player2, live, showProj=false) {
             let liveHtml = '';
             if (live) {
                 const isLive = live.state === 'LIVE' || live.state === 'CRIT';
                 const label = isLive ? `LIVE ${periodLabel(live.period)} ${live.clock}` : 'FINAL';
                 liveHtml = `<div class="live-badge${isLive ? '' : ' live-badge-final'}">${label}: ${live.score1}–${live.score2}</div>`;
             }
-            return `<div class="matchup-box">
+            const seriesDone = wins1 === 4 || wins2 === 4;
+            const prob1 = (showProj && !seriesDone) ? seriesWinPct(team1, team2) : null;
+            const prob2 = prob1 !== null ? 100 - prob1 : null;
+            const projRowHtml = prob1 !== null
+                ? `<div style="display:flex;align-items:center;margin-bottom:4px;">
+                    <span class="pred-label">Next Game Odds</span>
+                   </div>`
+                : '';
+            return `<div class="matchup-box${prob1 !== null ? ' pred-box' : ''}">
+                ${prob1 !== null ? projRowHtml : ''}
                 ${liveHtml}
                 <div class="matchup-team" data-team="${team1}" title="Click for ${TEAM_NAMES[team1]||team1} roster">
                     <div class="team-logo">${getTeamLogoSVG(team1)}</div>
                     <div class="team-code">${team1}</div>
                     <div class="team-score">${wins1}</div>
+                    ${prob1 !== null ? `<div class="pred-prob">${prob1}%</div>` : ''}
                 </div>
                 ${player1 ? `<div class="player-name-label">${player1}</div>` : ''}
                 <div class="divider-line"></div>
@@ -412,6 +427,7 @@
                     <div class="team-logo">${getTeamLogoSVG(team2)}</div>
                     <div class="team-code">${team2}</div>
                     <div class="team-score">${wins2}</div>
+                    ${prob2 !== null ? `<div class="pred-prob">${prob2}%</div>` : ''}
                 </div>
                 ${player2 ? `<div class="player-name-label">${player2}</div>` : ''}
             </div>`;
@@ -423,6 +439,66 @@
                 <div class="divider-line"></div>
                 <div class="matchup-team" style="color: #ccc; cursor: default; padding: 20px 0;">TBD</div>
             </div>`;
+        }
+
+        async function fetchSeriesOdds() {
+            if (!ODDS_API_KEY) return;
+            try {
+                const url = `https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american`;
+                const data = await tryFetch(url);
+                if (!Array.isArray(data)) {
+                    console.warn('Odds API returned unexpected format:', data);
+                    return;
+                }
+
+                const nameToCode = {};
+                Object.entries(TEAM_NAMES).forEach(([code, name]) => { nameToCode[name] = code; });
+                liveSeriesOdds = {};
+
+                data.forEach(event => {
+                    const homeCode = nameToCode[event.home_team];
+                    const awayCode = nameToCode[event.away_team];
+                    if (!homeCode || !awayCode) return;
+                    const matchup = R1_MATCHUPS.find(([t1, t2]) =>
+                        (t1===homeCode&&t2===awayCode)||(t1===awayCode&&t2===homeCode));
+                    if (!matchup) return;
+                    const [m1, m2] = matchup;
+                    const mapKey = `${m1}-${m2}`;
+                    if (liveSeriesOdds[mapKey] !== undefined) return; // keep first (most recent) game only
+
+                    const oddsMap = {};
+                    (event.bookmakers || []).forEach(bm => {
+                        const mkt = (bm.markets || []).find(m => m.key === 'h2h');
+                        if (!mkt) return;
+                        (mkt.outcomes || []).forEach(o => {
+                            const code = nameToCode[o.name];
+                            if (!code) return;
+                            (oddsMap[code] = oddsMap[code] || []).push(o.price);
+                        });
+                    });
+                    if (!oddsMap[m1]?.length || !oddsMap[m2]?.length) return;
+
+                    const avgOdds = code => oddsMap[code].reduce((a,b)=>a+b,0) / oddsMap[code].length;
+                    const implied = odds => odds < 0 ? (-odds)/(-odds+100) : 100/(odds+100);
+                    const p1 = implied(avgOdds(m1)), p2 = implied(avgOdds(m2));
+                    liveSeriesOdds[mapKey] = Math.round(p1 / (p1+p2) * 100);
+                    console.log(`Game odds: ${mapKey} → ${liveSeriesOdds[mapKey]}%`);
+                });
+            } catch(e) {
+                console.warn('Odds fetch failed:', e.message);
+            }
+        }
+
+        // Returns % chance team1 wins series from live betting odds, or null if unavailable
+        function seriesWinPct(team1, team2) {
+            const matchup = R1_MATCHUPS.find(([t1,t2])=>
+                (t1===team1&&t2===team2)||(t1===team2&&t2===team1));
+            if (!matchup) return null;
+            const [m1] = matchup;
+            const mapKey = `${matchup[0]}-${matchup[1]}`;
+            const odds = liveSeriesOdds[mapKey];
+            if (odds === undefined) return null;
+            return m1 === team1 ? odds : 100 - odds;
         }
 
         // Shows a projected R2+ matchup with win odds
@@ -461,13 +537,13 @@
                 <div class="round-title">WEST R1 <span style="font-size:0.8em;font-weight:normal;letter-spacing:0">Series W</span></div>`;
             ['COL-LAK','DAL-MIN','VGK-UTA','EDM-ANA'].forEach(key => {
                 const s = scores[key];
-                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live);
+                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live, true);
             });
             html += `</div><div class="round-column">
                 <div class="round-title">EAST R1 <span style="font-size:0.8em;font-weight:normal;letter-spacing:0">Series W</span></div>`;
             ['BUF-BOS','TBL-MTL','CAR-OTT','PIT-PHI'].forEach(key => {
                 const s = scores[key];
-                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live);
+                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live, true);
             });
             html += `</div></div>`;
 
@@ -511,6 +587,7 @@
 
         async function updateBracket() {
             try {
+                await fetchSeriesOdds();
                 const scores = await fetchNHLData();
                 document.getElementById('bracket').innerHTML = generateBracket(scores);
                 document.getElementById('updateTime').textContent =
