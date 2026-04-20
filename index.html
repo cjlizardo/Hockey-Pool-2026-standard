@@ -12,8 +12,17 @@
             padding: 20px; color: #333;
         }
         .header { text-align: center; margin-bottom: 30px; }
-        h1 { color: #1a1a1a; font-size: 2.5em; margin-bottom: 5px; }
-        .subtitle { color: #666; font-size: 1em; }
+        h1 {
+            font-size: 3em; font-weight: 900; letter-spacing: 5px;
+            margin-bottom: 8px;
+            background: linear-gradient(120deg, #0d1b2a 0%, #1b4332 45%, #c9a84c 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: #999; font-size: 0.82em; letter-spacing: 3px;
+            text-transform: uppercase; font-weight: 500;
+        }
         .bracket-wrapper {
             background: white; border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.12);
@@ -26,11 +35,18 @@
             display: flex; flex-direction: column; align-items: center;
             flex-shrink: 0; min-width: 110px; align-self: stretch;
         }
-        .cup-center {
-            flex: 1; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            text-align: center; color: #999; gap: 6px;
+        .cup-trophy {
+            text-align: center; color: #999;
+            padding-top: 18px;
         }
+        .pred-box { background: #f0faf4; border: 1px solid #b8ddc9 !important; }
+        .pred-label {
+            font-size: 0.62em; color: #fff; background: #5aaa7a;
+            text-align: center; text-transform: uppercase; letter-spacing: 0.6px;
+            font-weight: 700; padding: 2px 6px; border-radius: 3px;
+            margin-bottom: 5px; display: inline-block;
+        }
+        .pred-prob { font-size: 0.8em; color: #5aaa7a; font-weight: 700; margin-left: auto; min-width: 36px; text-align: right; }
         .round-column { display: flex; flex-direction: column; flex-shrink: 0; gap: 8px; }
         .round-title {
             text-align: center; font-weight: bold; color: #666; font-size: 0.75em;
@@ -409,6 +425,25 @@
             </div>`;
         }
 
+        // Shows a projected R2+ matchup with win odds
+        function createPredictedMatchup(team1, team2, prob1) {
+            const prob2 = 100 - prob1;
+            return `<div class="matchup-box pred-box">
+                <div class="pred-label">Projected</div>
+                <div class="matchup-team" data-team="${team1}">
+                    <div class="team-logo">${getTeamLogoSVG(team1)}</div>
+                    <div class="team-code">${team1}</div>
+                    <div class="pred-prob">${prob1}%</div>
+                </div>
+                <div class="divider-line"></div>
+                <div class="matchup-team" data-team="${team2}">
+                    <div class="team-logo">${getTeamLogoSVG(team2)}</div>
+                    <div class="team-code">${team2}</div>
+                    <div class="pred-prob">${prob2}%</div>
+                </div>
+            </div>`;
+        }
+
         function createSidebarMatchup(team1, team2) {
             const owner1 = getTeamOwner(team1);
             const owner2 = getTeamOwner(team2);
@@ -436,15 +471,17 @@
             });
             html += `</div></div>`;
 
-            // Pair 2 — Round 2
+            // Pair 2 — Round 2 (projected matchups based on R1 seedings & current odds)
             html += `<div class="round-pair">
                 <div class="round-column">
                     <div class="round-title">WEST R2</div>
-                    ${createEmptyMatchup()}${createEmptyMatchup()}
+                    ${createPredictedMatchup('COL','MIN',57)}
+                    ${createPredictedMatchup('EDM','VGK',53)}
                 </div>
                 <div class="round-column">
                     <div class="round-title">EAST R2</div>
-                    ${createEmptyMatchup()}${createEmptyMatchup()}
+                    ${createPredictedMatchup('CAR','BUF',61)}
+                    ${createPredictedMatchup('TBL','PIT',56)}
                 </div>
             </div>`;
 
@@ -463,9 +500,9 @@
             // Stanley Cup
             html += `<div class="cup-pair">
                 <div class="round-title" style="color:#ff9800;">STANLEY CUP</div>
-                <div class="cup-center">
-                    <div style="font-size:2.5em;">🏆</div>
-                    <div style="font-size:0.85em;">Champion TBD</div>
+                <div class="cup-trophy">
+                    <div style="font-size:2.8em; line-height:1;">🏆</div>
+                    <div style="font-size:0.8em; margin-top:6px;">Champion TBD</div>
                 </div>
             </div>`;
 
