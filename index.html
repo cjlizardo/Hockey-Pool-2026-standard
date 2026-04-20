@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 Stanley Cup Playoff Pool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px; color: #333;
+        }
+        .header { text-align: center; margin-bottom: 30px; }
+        h1 { color: #1a1a1a; font-size: 2.5em; margin-bottom: 5px; }
+        .subtitle { color: #666; font-size: 1em; }
+        .bracket-wrapper {
+            background: white; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            padding: 24px 28px; margin-bottom: 30px; overflow-x: auto;
+        }
+        /* Pairs layout: West+East stacked, rounds scrolling left→right */
+        .bracket-layout { display: flex; gap: 24px; align-items: flex-start; }
+        .round-pair { display: flex; flex-direction: column; gap: 14px; flex-shrink: 0; }
+        .cup-pair {
+            display: flex; flex-direction: column; align-items: center;
+            flex-shrink: 0; min-width: 110px; align-self: stretch;
+        }
+        .cup-center {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; color: #999; gap: 6px;
+        }
+        .round-column { display: flex; flex-direction: column; flex-shrink: 0; gap: 8px; }
+        .round-title {
+            text-align: center; font-weight: bold; color: #666; font-size: 0.75em;
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 4px; padding: 8px 0; border-bottom: 2px solid #eee;
+        }
+        .matchup-box {
+            background: white; border: 1px solid #ddd;
+            border-radius: 6px; padding: 10px; min-width: 150px; font-size: 0.85em;
+        }
+        .matchup-team {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px; cursor: pointer; border-radius: 3px; transition: all 0.2s;
+        }
+        .matchup-team:hover { background: rgba(33, 150, 243, 0.1); }
+        .team-logo {
+            width: 32px; height: 32px; border-radius: 4px; flex-shrink: 0;
+            cursor: pointer; transition: transform 0.2s; overflow: hidden;
+        }
+        .team-logo:hover { transform: scale(1.05); }
+        .team-code { font-weight: 600; min-width: 35px; }
+        .team-score { font-weight: bold; min-width: 20px; }
+        .divider-line { height: 1px; background: #ddd; margin: 4px 0; }
+        .player-name-label { font-size: 0.7em; color: #999; margin-top: 2px; }
+        .loading { text-align: center; color: #999; padding: 20px; font-size: 0.95em; }
+        .update-info { text-align: center; color: #999; font-size: 0.85em; margin-top: 20px; }
+        .live-badge {
+            background: #e53935; color: white; font-size: 0.65em;
+            padding: 2px 6px; border-radius: 3px; margin-bottom: 6px;
+            text-align: center; font-weight: bold; letter-spacing: 0.5px;
+        }
+        .live-badge-final { background: #757575; }
+        /* Team modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+            z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-box {
+            background: white; border-radius: 12px; width: 100%; max-width: 520px;
+            max-height: 85vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .modal-head {
+            display: flex; align-items: center; gap: 14px;
+            padding: 20px 24px 14px; border-bottom: 1px solid #eee;
+            position: sticky; top: 0; background: white; z-index: 1;
+        }
+        .modal-logo {
+            width: 52px; height: 52px; border-radius: 8px; flex-shrink: 0; overflow: hidden;
+        }
+        .modal-team-name { font-size: 1.15em; font-weight: 700; }
+        .modal-team-pick { font-size: 0.78em; color: #888; margin-top: 2px; }
+        .modal-close {
+            position: absolute; top: 14px; right: 16px;
+            background: none; border: none; font-size: 1.4em;
+            cursor: pointer; color: #999; line-height: 1; padding: 4px 8px; border-radius: 4px;
+        }
+        .modal-close:hover { background: #f5f5f5; color: #333; }
+        .modal-body { padding: 4px 20px 20px; }
+        .modal-section {
+            font-size: 0.72em; font-weight: 700; color: #aaa;
+            text-transform: uppercase; letter-spacing: 1px;
+            margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #eee;
+        }
+        .player-tbl { width: 100%; border-collapse: collapse; font-size: 0.83em; }
+        .player-tbl th {
+            text-align: left; padding: 5px 8px; color: #bbb; font-weight: 600;
+            font-size: 0.78em; text-transform: uppercase;
+        }
+        .player-tbl th.r { text-align: right; }
+        .player-tbl td { padding: 6px 8px; border-top: 1px solid #f5f5f5; vertical-align: middle; }
+        .player-tbl td.r { text-align: right; color: #555; }
+        .player-tbl tr:hover td { background: #fafafa; }
+        .phead { width: 26px; height: 26px; border-radius: 50%; vertical-align: middle;
+            margin-right: 7px; object-fit: cover; background: #eee; }
+        .modal-loading { text-align: center; padding: 40px 20px; color: #aaa; font-size: 0.9em; }
+        .modal-error { text-align: center; padding: 30px 20px; color: #e53935; font-size: 0.85em; }
+        /* Mobile: smaller header + sheet modal; bracket already scrolls horizontally */
+        @media (max-width: 700px) {
+            body { padding: 8px; }
+            h1 { font-size: 1.5em; }
+            .header { margin-bottom: 14px; }
+            .bracket-wrapper { padding: 12px 10px; }
+            .matchup-box { min-width: 130px; font-size: 0.8em; padding: 8px; }
+            .team-logo { width: 28px; height: 28px; }
+            .update-info { font-size: 0.78em; margin-top: 12px; }
+            .modal-overlay { padding: 0; align-items: flex-end; }
+            .modal-box { border-radius: 16px 16px 0 0; max-height: 90vh; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width: 100%; margin: 0 auto;">
+        <div class="header">
+            <h1>2026 PLAYOFF BRACKET</h1>
+            <p class="subtitle">Live Bracket & Win Probabilities</p>
+        </div>
+
+        <div class="bracket-wrapper">
+            <div class="bracket-layout" id="bracket">
+                <div class="loading">Loading playoff bracket data...</div>
+            </div>
+        </div>
+
+        <div class="update-info" id="updateInfo">
+            Last updated: <span id="updateTime">--:--</span> | Auto-refreshing every 30 seconds
+        </div>
+    </div>
+
+    <!-- Team modal -->
+    <div id="teamModal" style="display:none">
+        <div class="modal-overlay" id="modalOverlay">
+            <div class="modal-box">
+                <button class="modal-close" id="modalClose">&#x2715;</button>
+                <div id="modalHead" class="modal-head"></div>
+                <div id="modalBody" class="modal-body">
+                    <div class="modal-loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SEASON = '20252026';
+
+        const poolPicks = [
+            { owner: 'CJ',      team: 'COL' },
+            { owner: 'Antoine', team: 'CAR' },
+            { owner: 'Nell',    team: 'TBL' },
+            { owner: 'JC',      team: 'EDM' },
+            { owner: 'Patrick', team: 'VGK' },
+            { owner: 'Patrick', team: 'BUF' },
+            { owner: 'JC',      team: 'PIT' },
+            { owner: 'Nell',    team: 'DAL' },
+            { owner: 'Antoine', team: 'MIN' },
+            { owner: 'CJ',      team: 'OTT' },
+            { owner: 'CJ',      team: 'MTL' },
+            { owner: 'Antoine', team: 'PHI' },
+            { owner: 'Nell',    team: 'ANA' },
+            { owner: 'JC',      team: 'BOS' },
+            { owner: 'Patrick', team: 'UTA' }
+        ];
+
+        // Source of truth for keys — order defines team1/team2
+        const R1_MATCHUPS = [
+            ['COL','LAK'], ['DAL','MIN'], ['VGK','UTA'], ['EDM','ANA'],
+            ['BUF','BOS'], ['TBL','MTL'], ['CAR','OTT'], ['PIT','PHI']
+        ];
+
+        function getTeamOwner(teamCode) {
+            const pick = poolPicks.find(p => p.team === teamCode);
+            return pick ? pick.owner : '';
+        }
+
+        function initScores() {
+            const scores = {};
+            R1_MATCHUPS.forEach(([t1, t2]) => {
+                scores[`${t1}-${t2}`] = { team1: t1, team2: t2, wins1: 0, wins2: 0, live: null };
+            });
+            return scores;
+        }
+
+        const TEAM_NAMES = {
+            COL:'Colorado Avalanche', LAK:'Los Angeles Kings',
+            DAL:'Dallas Stars',       MIN:'Minnesota Wild',
+            VGK:'Vegas Golden Knights', UTA:'Utah Hockey Club',
+            EDM:'Edmonton Oilers',    ANA:'Anaheim Ducks',
+            BUF:'Buffalo Sabres',     BOS:'Boston Bruins',
+            TBL:'Tampa Bay Lightning',MTL:'Montréal Canadiens',
+            CAR:'Carolina Hurricanes',OTT:'Ottawa Senators',
+            PIT:'Pittsburgh Penguins',PHI:'Philadelphia Flyers'
+        };
+
+        async function tryFetch(url) {
+            // 1. Try direct (works if the server sends CORS headers)
+            try {
+                const r = await fetch(url);
+                if (r.ok) return r.json();
+            } catch (_) {}
+
+            // 2. allorigins.win — server-side proxy, reliable, wraps response in {contents:"..."}
+            try {
+                const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                if (r.ok) {
+                    const d = await r.json();
+                    return JSON.parse(d.contents);
+                }
+            } catch (_) {}
+
+            // 3. corsproxy.io — last resort
+            try {
+                const r = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`);
+                if (r.ok) return r.json();
+            } catch (_) {}
+
+            throw new Error(`All fetch attempts failed for: ${url}`);
+        }
+
+        async function nhlfetch(path) {
+            return tryFetch(`https://api-web.nhle.com/v1${path}`);
+        }
+
+        async function statsfetch(path) {
+            return tryFetch(`https://api.nhle.com/stats/rest/en${path}`);
+        }
+
+        // Set well before actual playoff start so no games are missed
+        const PLAYOFF_START = '2026-04-14';
+
+        async function fetchNHLData() {
+            const scores = initScores();
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            // Primary: playoff series carousel
+            let carouselOk = false;
+            try {
+                const data = await nhlfetch(`/playoff-series/carousel/${SEASON}/`);
+                console.log('Carousel response keys:', Object.keys(data));
+                applySeriesData(data, scores);
+                carouselOk = true;
+            } catch (e) {
+                console.warn('Carousel failed, using date-range fallback:', e.message);
+            }
+
+            if (carouselOk) {
+                // Carousel gave us series wins — only need today for live game state
+                try {
+                    const data = await nhlfetch(`/score/${todayStr}`);
+                    processGameDay(data, scores, false); // live state only, no win counting
+                } catch (e) {
+                    console.warn('Live scores failed:', e.message);
+                }
+            } else {
+                // Fallback: count wins from every playoff game date including today
+                const dates = [];
+                for (let d = new Date(PLAYOFF_START); d <= new Date(todayStr); d.setDate(d.getDate() + 1)) {
+                    dates.push(d.toISOString().slice(0, 10));
+                }
+                console.log('Fetching', dates.length, 'dates for fallback win-counting');
+                const results = await Promise.allSettled(
+                    dates.map(date => nhlfetch(`/score/${date}`))
+                );
+                results.forEach(r => {
+                    if (r.status === 'fulfilled') processGameDay(r.value, scores, true);
+                });
+            }
+
+            return scores;
+        }
+
+        function applySeriesData(data, scores) {
+            let seriesList = [];
+            if (data.rounds) {
+                const r1 = data.rounds.find(r => r.roundNumber === 1 || r.round === 1);
+                seriesList = r1?.series || [];
+            } else if (Array.isArray(data.series)) {
+                seriesList = data.series;
+            } else if (Array.isArray(data)) {
+                seriesList = data;
+            }
+            console.log('Series list length:', seriesList.length, seriesList[0]);
+            seriesList.forEach(s => {
+                const top = s.topSeed || s.topSeedTeam || s.team1 || {};
+                const bot = s.bottomSeed || s.bottomSeedTeam || s.team2 || {};
+                const tA = top.abbrev || top.triCode;
+                const bA = bot.abbrev || bot.triCode;
+                if (!tA || !bA) return;
+                for (const [m1, m2] of R1_MATCHUPS) {
+                    if ((m1===tA&&m2===bA)||(m1===bA&&m2===tA)) {
+                        const key = `${m1}-${m2}`;
+                        const flip = m1 === bA;
+                        scores[key].wins1 = flip ? (bot.wins||0) : (top.wins||0);
+                        scores[key].wins2 = flip ? (top.wins||0) : (bot.wins||0);
+                        console.log(`Series ${key}: ${scores[key].wins1}-${scores[key].wins2}`);
+                        break;
+                    }
+                }
+            });
+        }
+
+        function processGameDay(data, scores, countWins = true) {
+            (data.games || []).forEach(game => {
+                if (game.gameType !== 3) return; // playoff only
+                const away = game.awayTeam?.abbrev;
+                const home = game.homeTeam?.abbrev;
+                if (!away || !home) return;
+
+                const state = game.gameState;
+                const awayGoals = game.awayTeam.score || 0;
+                const homeGoals = game.homeTeam.score || 0;
+
+                for (const [m1, m2] of R1_MATCHUPS) {
+                    if (!((m1 === away || m1 === home) && (m2 === away || m2 === home))) continue;
+                    const key = `${m1}-${m2}`;
+                    const m1IsHome = m1 === home;
+
+                    if (countWins && (state === 'FINAL' || state === 'OFF')) {
+                        const winner = homeGoals > awayGoals ? home : away;
+                        if (winner === m1) scores[key].wins1++;
+                        else scores[key].wins2++;
+                        console.log(`Win counted: ${winner} in ${key} → ${scores[key].wins1}-${scores[key].wins2}`);
+                    } else if (state === 'LIVE' || state === 'CRIT') {
+                        scores[key].live = {
+                            score1: m1IsHome ? homeGoals : awayGoals,
+                            score2: m1IsHome ? awayGoals : homeGoals,
+                            state,
+                            period: game.period || 0,
+                            clock: game.clock?.timeRemaining || ''
+                        };
+                    }
+                    break;
+                }
+            });
+        }
+
+        function periodLabel(p) {
+            if (p === 4) return 'OT';
+            if (p >= 5) return 'SO';
+            return `P${p}`;
+        }
+
+        // Original SVG badge artwork — inspired by team colours, not copies of official marks
+        function getTeamLogoSVG(code) {
+            const S = {
+                COL: `<rect width="40" height="40" fill="#5c1f84"/><polygon points="20,6 35,31 5,31" fill="#c4004e"/>`,
+                LAK: `<rect width="40" height="40" fill="#0d0d0d"/><polygon points="8,27 10,17 15,22 20,13 25,22 30,17 32,27 29,27 29,30 11,30 11,27" fill="#9aa0a8"/>`,
+                DAL: `<rect width="40" height="40" fill="#004d30"/><polygon points="20,5 22.9,14 32.4,14 24.8,19.6 27.6,28.5 20,23 12.4,28.5 15.2,19.6 7.6,14 17.1,14" fill="#c8a84b"/>`,
+                MIN: `<rect width="40" height="40" fill="#154734"/><circle cx="20" cy="18" r="10" fill="none" stroke="#a6192e" stroke-width="3"/><line x1="20" y1="8" x2="20" y2="28" stroke="#a6192e" stroke-width="2.5"/><line x1="10" y1="18" x2="30" y2="18" stroke="#a6192e" stroke-width="2.5"/>`,
+                VGK: `<rect width="40" height="40" fill="#0f0f0f"/><polygon points="20,3 34,9 34,22 20,37 6,22 6,9" fill="none" stroke="#b4975a" stroke-width="3"/>`,
+                UTA: `<rect width="40" height="40" fill="#00205b"/><polygon points="20,5 32,29 24,21 20,27 16,21 8,29" fill="white" opacity="0.9"/>`,
+                EDM: `<rect width="40" height="40" fill="#003da5"/><ellipse cx="20" cy="20" rx="11" ry="15" fill="#ff6600"/><ellipse cx="20" cy="22" rx="7" ry="11" fill="#003da5"/>`,
+                ANA: `<rect width="40" height="40" fill="#0d0d0d"/><circle cx="20" cy="19" r="12" fill="#f47d30"/><circle cx="20" cy="19" r="8" fill="#0d0d0d"/><circle cx="20" cy="19" r="4" fill="#f47d30"/>`,
+                BUF: `<rect width="40" height="40" fill="#00338d"/><line x1="9" y1="9" x2="31" y2="31" stroke="#ffc52f" stroke-width="5" stroke-linecap="round"/><line x1="31" y1="9" x2="9" y2="31" stroke="#ffc52f" stroke-width="5" stroke-linecap="round"/>`,
+                BOS: `<rect width="40" height="40" fill="#0d0d0d"/><circle cx="20" cy="18" r="11" fill="#ffd700"/><circle cx="15" cy="13" r="3.5" fill="#0d0d0d"/><circle cx="25" cy="13" r="3.5" fill="#0d0d0d"/><circle cx="12" cy="21" r="3.5" fill="#0d0d0d"/><circle cx="28" cy="21" r="3.5" fill="#0d0d0d"/>`,
+                TBL: `<rect width="40" height="40" fill="#002868"/><polygon points="23,3 13,21 21,21 14,37 29,17 21,17" fill="white"/>`,
+                MTL: `<rect width="40" height="40" fill="#af1e2d"/><circle cx="20" cy="18" r="12" fill="none" stroke="#00205b" stroke-width="4"/><text x="20" y="24" text-anchor="middle" fill="white" font-size="15" font-weight="900" font-family="Georgia,serif">C</text>`,
+                CAR: `<rect width="40" height="40" fill="#cc0000"/><circle cx="20" cy="18" r="11" fill="none" stroke="white" stroke-width="3" stroke-dasharray="22 8" stroke-dashoffset="4"/><circle cx="20" cy="18" r="5" fill="none" stroke="white" stroke-width="2" stroke-dasharray="10 5"/>`,
+                OTT: `<rect width="40" height="40" fill="#c8102e"/><circle cx="20" cy="18" r="12" fill="none" stroke="#c79c50" stroke-width="3"/><text x="20" y="24" text-anchor="middle" fill="#c79c50" font-size="15" font-weight="900" font-family="Georgia,serif">S</text>`,
+                PIT: `<rect width="40" height="40" fill="#1a1a1a"/><ellipse cx="20" cy="25" rx="9" ry="9" fill="#fcb514"/><circle cx="20" cy="12" r="6" fill="#fcb514"/><ellipse cx="17" cy="15" rx="2" ry="2.5" fill="#1a1a1a"/><ellipse cx="23" cy="15" rx="2" ry="2.5" fill="#1a1a1a"/>`,
+                PHI: `<rect width="40" height="40" fill="#f74601"/><path d="M7,33 Q14,11 20,7 Q26,11 33,33 L29,33 Q24,17 20,12 Q16,17 11,33 Z" fill="#111"/>`,
+            };
+            const inner = S[code] || `<rect width="40" height="40" fill="#555"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="Arial,sans-serif">${code}</text>`;
+            return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">${inner}</svg>`;
+        }
+
+        function createMatchupBox(team1, team2, wins1, wins2, player1, player2, live) {
+            let liveHtml = '';
+            if (live) {
+                const isLive = live.state === 'LIVE' || live.state === 'CRIT';
+                const label = isLive ? `LIVE ${periodLabel(live.period)} ${live.clock}` : 'FINAL';
+                liveHtml = `<div class="live-badge${isLive ? '' : ' live-badge-final'}">${label}: ${live.score1}–${live.score2}</div>`;
+            }
+            return `<div class="matchup-box">
+                ${liveHtml}
+                <div class="matchup-team" data-team="${team1}" title="Click for ${TEAM_NAMES[team1]||team1} roster">
+                    <div class="team-logo">${getTeamLogoSVG(team1)}</div>
+                    <div class="team-code">${team1}</div>
+                    <div class="team-score">${wins1}</div>
+                </div>
+                ${player1 ? `<div class="player-name-label">${player1}</div>` : ''}
+                <div class="divider-line"></div>
+                <div class="matchup-team" data-team="${team2}" title="Click for ${TEAM_NAMES[team2]||team2} roster">
+                    <div class="team-logo">${getTeamLogoSVG(team2)}</div>
+                    <div class="team-code">${team2}</div>
+                    <div class="team-score">${wins2}</div>
+                </div>
+                ${player2 ? `<div class="player-name-label">${player2}</div>` : ''}
+            </div>`;
+        }
+
+        function createEmptyMatchup() {
+            return `<div class="matchup-box" style="background: #f5f5f5; border: 2px dashed #ddd;">
+                <div class="matchup-team" style="color: #ccc; cursor: default; padding: 20px 0;">TBD</div>
+                <div class="divider-line"></div>
+                <div class="matchup-team" style="color: #ccc; cursor: default; padding: 20px 0;">TBD</div>
+            </div>`;
+        }
+
+        function createSidebarMatchup(team1, team2) {
+            const owner1 = getTeamOwner(team1);
+            const owner2 = getTeamOwner(team2);
+            return `<div class="upcoming-section">
+                <div class="upcoming-match"><span class="match-team">${team1}</span>${owner1 ? `<span class="match-owner">${owner1}</span>` : ''}</div>
+                <div class="upcoming-match"><span class="match-team">${team2}</span>${owner2 ? `<span class="match-owner">${owner2}</span>` : ''}</div>
+            </div>`;
+        }
+
+        function generateBracket(scores) {
+            let html = '';
+
+            // Pair 1 — Round 1 (West top, East bottom)
+            html += `<div class="round-pair"><div class="round-column">
+                <div class="round-title">WEST R1 <span style="font-size:0.8em;font-weight:normal;letter-spacing:0">Series W</span></div>`;
+            ['COL-LAK','DAL-MIN','VGK-UTA','EDM-ANA'].forEach(key => {
+                const s = scores[key];
+                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live);
+            });
+            html += `</div><div class="round-column">
+                <div class="round-title">EAST R1 <span style="font-size:0.8em;font-weight:normal;letter-spacing:0">Series W</span></div>`;
+            ['BUF-BOS','TBL-MTL','CAR-OTT','PIT-PHI'].forEach(key => {
+                const s = scores[key];
+                html += createMatchupBox(s.team1, s.team2, s.wins1, s.wins2, getTeamOwner(s.team1), getTeamOwner(s.team2), s.live);
+            });
+            html += `</div></div>`;
+
+            // Pair 2 — Round 2
+            html += `<div class="round-pair">
+                <div class="round-column">
+                    <div class="round-title">WEST R2</div>
+                    ${createEmptyMatchup()}${createEmptyMatchup()}
+                </div>
+                <div class="round-column">
+                    <div class="round-title">EAST R2</div>
+                    ${createEmptyMatchup()}${createEmptyMatchup()}
+                </div>
+            </div>`;
+
+            // Pair 3 — Conference Finals
+            html += `<div class="round-pair">
+                <div class="round-column">
+                    <div class="round-title">WEST FINAL</div>
+                    ${createEmptyMatchup()}
+                </div>
+                <div class="round-column">
+                    <div class="round-title">EAST FINAL</div>
+                    ${createEmptyMatchup()}
+                </div>
+            </div>`;
+
+            // Stanley Cup
+            html += `<div class="cup-pair">
+                <div class="round-title" style="color:#ff9800;">STANLEY CUP</div>
+                <div class="cup-center">
+                    <div style="font-size:2.5em;">🏆</div>
+                    <div style="font-size:0.85em;">Champion TBD</div>
+                </div>
+            </div>`;
+
+            return html;
+        }
+
+        async function updateBracket() {
+            try {
+                const scores = await fetchNHLData();
+                document.getElementById('bracket').innerHTML = generateBracket(scores);
+                document.getElementById('updateTime').textContent =
+                    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            } catch (error) {
+                console.error('Error updating bracket:', error);
+            }
+        }
+
+        // ── Team modal ────────────────────────────────────────────────
+        function openTeamModal(team) {
+            const modal = document.getElementById('teamModal');
+            const owner = getTeamOwner(team);
+            modal.style.display = 'block';
+            document.getElementById('modalHead').innerHTML = `
+                <div class="team-logo modal-logo">${getTeamLogoSVG(team)}</div>
+                <div>
+                    <div class="modal-team-name">${TEAM_NAMES[team] || team}</div>
+                    <div class="modal-team-pick">${owner ? `Pool pick: ${owner}` : 'No pool pick'}</div>
+                </div>`;
+            document.getElementById('modalBody').innerHTML = '<div class="modal-loading">Loading roster & stats…</div>';
+            fetchTeamData(team).then(({roster, skaters, goalies}) => renderModal(team, roster, skaters, goalies));
+        }
+
+        function closeModal() {
+            document.getElementById('teamModal').style.display = 'none';
+        }
+
+        async function fetchTeamData(team) {
+            const cx = encodeURIComponent(`seasonId=${SEASON} and gameTypeId=3 and teamAbbrevs='${team}'`);
+            const [rosterRes, skatersRes, goaliesRes] = await Promise.allSettled([
+                nhlfetch(`/roster/${team}/current`),
+                statsfetch(`/skater/summary?cayenneExp=${cx}&sort=points&direction=DESC&limit=40&start=0&isAggregate=false&isGame=false&reportType=basic`),
+                statsfetch(`/goalie/summary?cayenneExp=${cx}&sort=wins&direction=DESC&limit=5&start=0&isAggregate=false&isGame=false&reportType=basic`)
+            ]);
+            return {
+                roster:  rosterRes.status  === 'fulfilled' ? rosterRes.value  : null,
+                skaters: skatersRes.status === 'fulfilled' ? skatersRes.value.data || [] : [],
+                goalies: goaliesRes.status === 'fulfilled' ? goaliesRes.value.data || [] : []
+            };
+        }
+
+        function renderModal(team, roster, skaters, goalies) {
+            // Build stat lookup by player name (stats API uses name, roster uses id)
+            const skaterMap = {};
+            skaters.forEach(s => { skaterMap[s.playerId] = s; });
+            const goalieMap = {};
+            goalies.forEach(g => { goalieMap[g.playerId] = g; });
+
+            if (!roster) {
+                document.getElementById('modalBody').innerHTML =
+                    '<div class="modal-error">Could not load roster. Check console for details.</div>';
+                return;
+            }
+
+            const sections = [
+                { label: 'Forwards',   players: roster.forwards   || [], type: 'skater' },
+                { label: 'Defensemen', players: roster.defensemen || [], type: 'skater' },
+                { label: 'Goalies',    players: roster.goalies    || [], type: 'goalie' }
+            ];
+
+            let html = '';
+            sections.forEach(({ label, players, type }) => {
+                if (!players.length) return;
+                html += `<div class="modal-section">${label}</div>`;
+                if (type === 'skater') {
+                    html += `<table class="player-tbl"><thead><tr>
+                        <th>#</th><th>Player</th>
+                        <th class="r">G</th><th class="r">A</th><th class="r">PTS</th><th class="r">GP</th>
+                    </tr></thead><tbody>`;
+                    players.forEach(p => {
+                        const s = skaterMap[p.id] || {};
+                        const name = `${p.firstName?.default||''} ${p.lastName?.default||''}`.trim();
+                        const img = p.headshot
+                            ? `<img class="phead" src="${p.headshot}" onerror="this.style.display='none'" alt="">`
+                            : '';
+                        html += `<tr>
+                            <td style="color:#ccc;font-size:0.8em;">${p.sweaterNumber||''}</td>
+                            <td>${img}${name}</td>
+                            <td class="r">${s.goals      ?? '–'}</td>
+                            <td class="r">${s.assists    ?? '–'}</td>
+                            <td class="r"><b>${s.points ?? '–'}</b></td>
+                            <td class="r">${s.gamesPlayed ?? '–'}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += `<table class="player-tbl"><thead><tr>
+                        <th>#</th><th>Goalie</th>
+                        <th class="r">W</th><th class="r">GAA</th><th class="r">SV%</th><th class="r">GP</th>
+                    </tr></thead><tbody>`;
+                    players.forEach(p => {
+                        const g = goalieMap[p.id] || {};
+                        const name = `${p.firstName?.default||''} ${p.lastName?.default||''}`.trim();
+                        const img = p.headshot
+                            ? `<img class="phead" src="${p.headshot}" onerror="this.style.display='none'" alt="">`
+                            : '';
+                        const gaa = g.goalsAgainstAverage != null ? g.goalsAgainstAverage.toFixed(2) : '–';
+                        const svp = g.savePct != null ? (g.savePct * 100).toFixed(1) + '%' : '–';
+                        html += `<tr>
+                            <td style="color:#ccc;font-size:0.8em;">${p.sweaterNumber||''}</td>
+                            <td>${img}${name}</td>
+                            <td class="r">${g.wins        ?? '–'}</td>
+                            <td class="r">${gaa}</td>
+                            <td class="r">${svp}</td>
+                            <td class="r">${g.gamesPlayed ?? '–'}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+            });
+
+            if (!html) html = '<div class="modal-error">No roster data available.</div>';
+            document.getElementById('modalBody').innerHTML = html;
+        }
+
+        window.addEventListener('load', () => {
+            updateBracket();
+            setInterval(updateBracket, 30000);
+
+            // Close modal on overlay click or X button
+            document.getElementById('modalOverlay').addEventListener('click', e => {
+                if (e.target === document.getElementById('modalOverlay')) closeModal();
+            });
+            document.getElementById('modalClose').addEventListener('click', closeModal);
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+            // Team click → open modal (event delegation on bracket wrapper)
+            document.getElementById('bracket').addEventListener('click', e => {
+                const el = e.target.closest('[data-team]');
+                if (el) openTeamModal(el.dataset.team);
+            });
+        });
+    </script>
+</body>
+</html>
+
